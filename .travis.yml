@@ -2,18 +2,38 @@ language: cpp
 
 matrix:
   include:
-    - os: linux
-      dist: trusty
-    - os: osx
+  - os: linux
+    dist: trusty
+    env: NAME=linux32
+  - os: linux
+    dist: trusty
+    env: NAME=linux64
+  - os: osx
+    osx_image: xcode9.3
+    env: NAME=macosx64
 
 before_install:
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install ant; fi
+- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install ant; fi
 
 before_script:
- - git clone https://bitbucket.org/chromiumembedded/java-cef.git src
- - cd src && mkdir jcef_build && cd jcef_build
+- git clone https://bitbucket.org/chromiumembedded/java-cef.git src
+- echo "Running cmake..."
+- cd src
+- mkdir jcef_build
+- cd jcef_build
 
 script:
- - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release .. ; fi
- - if [[ "$TRAVIS_OS_NAME" != "linux" ]]; then cmake -G "Unix Makefiles" -DPROJECT_ARCH="x86_64" -DCMAKE_BUILD_TYPE=Release .. ; fi
- - make -j4
+- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release .. ; fi
+- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then cmake -G "Unix Makefiles" -DPROJECT_ARCH="x86_64" -DCMAKE_BUILD_TYPE=Release .. ; fi
+- make -j4
+- cd ..
+- cd tools
+- chmod +x compile.sh make_distrib.sh
+- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then echo "Building the JCEFJava classes..."; ./compile.sh $NAME; fi
+- echo "Making distribution..."
+- "./make_distrib.sh $NAME"
+- cd ..
+- cd binary_distrib
+- tar cvzf jcef-$NAME-distribution.tar.gz $NAME
+- curl -X MKCOL $UPLOAD_URL'/'$(date +%Y%m%d) --user $UPLOADER_UN':'$UPLOADER_PWD --anyauth
+- curl -T jcef-$NAME-distribution.tar.gz $UPLOAD_URL'/'$(date +%Y%m%d)'/jcef-'$NAME'-distribution.tar.gz' --user $UPLOADER_UN':'$UPLOADER_PWD --anyauth
